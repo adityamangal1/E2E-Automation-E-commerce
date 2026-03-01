@@ -1,44 +1,88 @@
 const { test, expect } = require('@playwright/test');
+require('dotenv').config();
 
-async function waitForMillseconds(time) {
-    await new Promise((resolve) => setTimeout(resolve, Number(time)));
-}
 
-test("e22 demo", async ({ page }) => {
-    const email = "testuser125@gmail.com";
-    await page.goto("https://rahulshettyacademy.com/client/#/auth/login")
-    await page.locator("#userEmail").fill(email);
-    await page.locator("#userPassword").fill("Mangal@123");
+const TEST_DATA = {
+    email: process.env.email,
+    password: process.env.password,
+    couponCode: process.env.couponCode,
+    targetCountry: process.env.targetCountry,
+    cvv: process.env.cvv
+};
+
+
+const BASE_URL = "https://rahulshettyacademy.com/client/#/auth/login";
+
+/**
+ * E2E Test: Complete Purchase Flow
+ * This test covers the full user journey from login to checkout:
+ * 1. User Authentication
+ * 2. Adding product to cart
+ * 3. Cart verification
+ * 4. Applying coupon code
+ * 5. Filling shipping details
+ * 6. Order submission
+ */
+test("e2e demo - Complete Purchase Flow", async ({ page }) => {
+
+    // ========== STEP 1: User Authentication ==========
+    await page.goto(`${BASE_URL}`);
+    await page.locator("#userEmail").fill(TEST_DATA.email);
+    await page.locator("#userPassword").fill(TEST_DATA.password);
     await page.locator("#login").click();
+
+    // ========== STEP 2: Add Product to Cart ==========
+    // Select the second product (ZARA COAT 3) and add to cart
     await page.getByRole('button', { name: 'Add To Cart' }).nth(1).click();
+
+    // ========== STEP 3: Navigate to Cart & Verify ==========
     await page.getByRole('button', { name: 'Cart' }).nth(0).click();
     await expect(page.getByRole('heading', { name: 'ZARA COAT 3' })).toBeVisible();
 
+    // ========== STEP 4: Proceed to Checkout ==========
     await page.getByRole('button', { name: 'Checkout' }).click();
 
-    expect(await page.locator("label").nth(3).textContent()).toEqual(email);
-    await page.locator("[name='coupon']").fill("rahulshettyacademy");
+    // Verify user email is pre-populated correctly
+    const displayedEmail = await page.locator("label").nth(3).textContent();
+    expect(displayedEmail).toEqual(TEST_DATA.email);
 
+    // ========== STEP 5: Apply Coupon Code ==========
+    await page.locator("[name='coupon']").fill(TEST_DATA.couponCode);
     await page.getByRole('button', { name: 'Apply Coupon' }).click();
+
+    // Verify coupon success message is displayed
     const couponMessage = await page.locator("p.mt-1.ng-star-inserted").textContent();
     await expect(page.getByText(couponMessage)).toBeVisible();
 
+    // ========== STEP 6: Fill Shipping Details ==========
+    // Fill additional shipping information
     await page.locator("input.input.txt").nth(2).fill("Sample Text");
-    await page.locator("[placeholder*='Country']").pressSequentially("India");
-    await page.locator(".ta-results").waitFor();
-    const countOptions = await page.locator("[type='button']").count();
-    console.log("count is", countOptions)
 
-    for (let i = 1; i < countOptions; i++) {
-        console.log(await page.locator("[type='button']").nth(i).textContent() === ' India');
-        if (await page.locator("[type='button']").nth(i).textContent() === ' India') {
-            console.log(await page.locator("[type='button']").nth(i).textContent() === ' India');
-            console.log("mil gya for", i)
-            await page.locator("[type='button']").nth(i).click();
+    // Select country from autocomplete dropdown
+    await page.locator("[placeholder*='Country']").pressSequentially(TEST_DATA.targetCountry);
+    await page.locator(".ta-results").waitFor();
+
+    // Find and select the target country from dropdown options
+    const countryButtons = page.locator("[type='button']");
+    const countOptions = await countryButtons.count();
+    console.log("Available country options:", countOptions);
+
+    for (let i = 0; i < countOptions; i++) {
+        const optionText = await countryButtons.nth(i).textContent();
+        if (optionText === ` ${TEST_DATA.targetCountry}`) {
+            console.log(`Found target country at index: ${i}`);
+            await countryButtons.nth(i).click();
             break;
         }
+        else {
+            console.log(`Option at index ${i} does not match target country: ${optionText}`);
+        }
     }
-    await page.locator("input.input.txt").nth(1).fill("433");
+
+    // Fill CVV/Security code
+    await page.locator("input.input.txt").nth(1).fill(TEST_DATA.cvv);
+
+    // ========== STEP 7: Submit Order ==========
     await page.locator("a.btnn.action__submit.ng-star-inserted").click();
-    console.log("ok done");
+    console.log("✅ Order submitted successfully!");
 });

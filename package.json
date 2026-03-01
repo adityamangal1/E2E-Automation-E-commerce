@@ -11,5 +11,8 @@
     "@playwright/test": "^1.55.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@types/node": "^24.3.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
   }
 }
