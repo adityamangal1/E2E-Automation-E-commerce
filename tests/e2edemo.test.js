@@ -9,6 +9,9 @@ const TEST_DATA = {
     targetCountry: process.env.targetCountry,
     cvv: process.env.cvv
 };
+async function waitForMillseconds(time) {
+    await new Promise((resolve) => setTimeout(resolve, Number(time)));
+}
 
 
 const BASE_URL = "https://rahulshettyacademy.com/client/#/auth/login";
@@ -85,4 +88,33 @@ test("e2e demo - Complete Purchase Flow", async ({ page }) => {
     // ========== STEP 7: Submit Order ==========
     await page.locator("a.btnn.action__submit.ng-star-inserted").click();
     console.log("✅ Order submitted successfully!");
+});
+
+test.only("e2e demo - Verify Order History", async ({ page }) => {
+
+    await page.goto(`${BASE_URL}`);
+    await page.locator("#userEmail").fill(TEST_DATA.email);
+    await page.locator("#userPassword").fill(TEST_DATA.password);
+    await page.locator("#login").click();
+
+    await page.locator(".btn.btn-custom").nth(1).click();
+    await waitForMillseconds(500);
+    
+    const TotalOrderNumber = await page.locator("tbody tr").count();
+    const orderId1 = "69ad6847415d779f9b627f79"
+    await waitForMillseconds(1500);
+
+    for (let i = 0; i < TotalOrderNumber; i++) {
+
+        const matchId = (await page.locator("tbody tr").nth(i).textContent()).match(/^[a-f0-9]+/)[0];
+        if (orderId1 === matchId) {
+            console.info(`Order ID ${orderId1} found at index ${i}`);
+            const row = await page.locator("tbody tr").nth(2);
+            await row.locator(".btn.btn-primary").click();
+            const fetchOrderId = await page.locator(".col-text.-main").textContent();
+            expect(fetchOrderId).toEqual(orderId1)
+             console.info(`Order ID ${orderId1} found at index ${i}`);
+            break;
+        }
+    }
 });
